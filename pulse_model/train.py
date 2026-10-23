@@ -87,7 +87,7 @@ def main():
     np.random.seed(cfg.seed)
 
     # ---- data ----
-    d, regions = load_windows(cfg.data_dir, cfg.fps)
+    d, regions = load_windows(cfg.data_dir, cfg.fps, cfg.scenes)
     split = assign_splits(d, cfg)
     idx = {s: np.flatnonzero(split == s) for s in ("train", "val", "test")}
     print("\nsplit   subjects  real  fake")
@@ -209,6 +209,17 @@ def main():
         cs = np.array([s_test[clip == c].mean() for c in clips])
         results["clip_level"] = detection_metrics(cy, cs, cfg.target_bpcer, threshold=ckpt["threshold"])
 
+    if cfg.cross_test:  # a different dataset: same threshold, nothing tuned on it
+        dx, regions_x = load_windows(cfg.cross_test, cfg.fps)
+        if regions_x != regions:
+            raise ValueError(f"cross_test has regions {regions_x}, training used {regions}")
+        loader_x = DataLoader(PulseWindows(dx, np.arange(len(dx["y"])), cfg, train=False),
+                              batch_size=cfg.batch_size)
+        s_x, _ = predict(model, loader_x, loss_fn, device)
+        results["cross_test"] = dict(
+            path=cfg.cross_test, n_real=int((dx["y"] == 0).sum()), n_fake=int((dx["y"] == 1).sum()),
+            **detection_metrics(dx["y"], s_x, cfg.target_bpcer, threshold=ckpt["threshold"]))
+
     with open(os.path.join(run_dir, "metrics.json"), "w") as f:
         json.dump(results, f, indent=2)
     with open(os.path.join(run_dir, "test_predictions.csv"), "w", newline="") as f:
@@ -226,6 +237,10 @@ def main():
         print(f"TEST clip-level:   AUC {c['auc']:.3f} | APCER {c['apcer']:.3f} | BPCER {c['bpcer']:.3f}")
     for a, r in results["per_attack"].items():
         print(f"  attack '{a}': APCER {r['apcer']:.3f} over {r['n']} windows")
+    if "cross_test" in results:
+        c = results["cross_test"]
+        print(f"CROSS-DATASET ({c['path']}): AUC {c['auc']:.3f} | APCER {c['apcer']:.3f} | "
+              f"BPCER {c['bpcer']:.3f}  ({c['n_real']} real, {c['n_fake']} fake windows)")
     print(f"\nsaved: {run_dir}")
 
 

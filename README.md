@@ -20,20 +20,20 @@
 
 ## 🚦 Project status
 
-**Last updated: Sat Oct 24, 01:55 PKT. Final: Sat Oct 24, Lahore.**
+**Last updated: Sat Oct 24, 04:20 PKT. Final: Sat Oct 24, Lahore.**
 
-**Current stage: 🧠 Pulse training data is ready; next is training the model and building the demo app**
+**Current stage: 🔴 Pulse models trained and tested: at chance on face swaps. Next: re-scope layer 3 and build the demo app on the laptop**
 
 | # | Stage | Status | Notes |
 |:---:|---|:---:|---|
 | **0** | **Research and design** | ✅ Done | Five-layer firewall design is fixed (see [Architecture](#-architecture)). |
 | **1** | **Training data** | ✅ Done | 449 real and 2,138 fake videos (DFDC part 0 + Google DFD), all labels checked. UBFC-rPPG not downloaded. |
 | **2** | **Pulse pipeline:** video → MediaPipe regions → POS → `.npz` windows | ✅ Done | `pulse_pipeline/`. 1,976 of 2,587 videos converted into 15,363 windows (4,495 real, 10,868 fake). Live-webcam version written, not yet tested on a camera. |
-| **3** | **Pulse-consistency transformer** | 🟡 Ready to train | Code in `pulse_model/`, training data ready. Not trained yet. |
-| **4** | **Baselines:** CNN on PPG maps, logistic regression / XGBoost on coherence | ⚪ Not started | Needed to show the transformer helps. |
+| **3** | **Pulse-consistency transformer** | 🔴 Trained, no signal | Trained on DFD over 5 different splits, plus a test on 536 unseen DFDC videos. Result is at chance (see [Results](#results)). Does not catch face swaps. |
+| **4** | **Baseline:** logistic regression on region agreement | ✅ Done | Beat the transformer slightly on DFD (AUC 0.59–0.67) but is also at chance on new people. Exported to ONNX (`pulse_model/export/`). |
 | **5** | **Other layers:** camera check, color-flash challenge, face match, risk decision | ⚪ Not started | |
-| **6** | **Demo app:** mock onboarding UI with per-layer panel, ONNX export, runs offline on the laptop | 🟡 Planned | P0 for the final. Plan written in `demo_app/PLAN.md`, to be built on the laptop. No app code yet. |
-| **7** | **Evaluation:** APCER / BPCER, per-attack breakdown, latency on the laptop | ⚪ Not started | |
+| **6** | **Demo app:** mock onboarding UI with per-layer panel, ONNX export, runs offline on the laptop | 🟡 Planned | P0 for the final. Plan written in `demo_app/PLAN.md`, to be built on the laptop. No app code has reached GitHub yet. |
+| **7** | **Evaluation:** APCER / BPCER, per-attack breakdown, latency on the laptop | 🟡 Partly done | Pulse-model results are in. Colour-flash, camera check and laptop latency are not tested. |
 | **8** | **Pitch:** slides, backup demo video, rehearsal, feature freeze | ⚪ Not started | Backup video must be recorded tonight. |
 
 Legend: ✅ done · 🟡 in progress · ⚪ not started · 🔴 blocked
@@ -58,13 +58,14 @@ Legend: ✅ done · 🟡 in progress · ⚪ not started · 🔴 blocked
 - [x] Investigate the 521 DFDC videos lost to face tracking: 443 come from 15 side-on recordings, looser thresholds recovered only 2 of 48, so they stay dropped
 
 ### B. Model
-- [ ] Train the transformer on real windows, keeping only the 5 DFD scenes that have fakes
+- [x] Train the transformer on DFD (5 different person splits)
 - [x] Group DFDC videos by actual person: all 86 DFDC originals are the same woman, so DFDC part 0 is one person (`dfdc/p00`)
-- [ ] Decide how to split: with one DFDC person, a by-person split puts all of DFDC in one split. Train on DFD and use DFDC as a cross-dataset test, or download more DFDC parts
-- [ ] Train the simple baseline (logistic regression on region agreement)
-- [ ] Compare the two and pick the winner
-- [ ] Export the winner to ONNX
-- [ ] Test on the team's own 5 videos of 3 people
+- [x] Decide how to split: train and validate on DFD by person, use DFDC as a cross-dataset test
+- [x] Train the simple baseline (logistic regression on region agreement)
+- [x] Compare the two: both are at chance on face swaps; the baseline is slightly better on DFD and is the one exported
+- [x] Export to ONNX (`pulse_model/export/pulse.onnx`, baseline) and add `pulse_model/evaluate.py` to score any windows file
+- [x] Test on 536 unseen DFDC videos (parts 01 and 02): AUC 0.49 (baseline), 0.50 (transformer)
+- [ ] Test on the team's own 5 videos of 3 people (needs the files copied onto the PC; shows how often real brown-skinned faces are wrongly rejected)
 
 ### C. Demo app (built on the laptop)
 - [x] Write the plan (`demo_app/PLAN.md`)
@@ -74,14 +75,16 @@ Legend: ✅ done · 🟡 in progress · ⚪ not started · 🔴 blocked
 - [ ] Mock onboarding screen with a made-up bank
 - [ ] Layer 1: camera check
 - [ ] Layer 2: colour-flash challenge
-- [ ] Layer 3: pulse slot (dummy score until B is done)
+- [ ] Layer 3: re-scope to "live skin present" (pulse strength and region agreement against a background patch) and tune its threshold on teammates with the demo webcam. Recommended by the training chat; the trained model can be shown as an "experimental" score only. **Needs your decision.**
 - [ ] Layer 4: face match (P2, skip if short on time)
 - [ ] Layer 5: decision and per-layer panel
 - [ ] Runs fully offline
 
 ### D. Put it together (needs B and C)
-- [ ] Push the trained model, pull it on the laptop, plug it into layer 3
-- [ ] Tune thresholds on teammates
+- [x] Push the exported model so the laptop can pull it
+- [ ] Plug it into layer 3 (as the experimental score)
+- [ ] Tune thresholds on teammates (the baseline wrongly rejected 25% of new real people, so its threshold must be re-tuned on the demo camera)
+- [ ] *Optional:* test whether the colour-flash response differs between face and neck on a live swap (untested idea, needs the laptop and the finale's swap tool)
 - [ ] Run the attack ladder: photo → phone replay → live face swap
 - [ ] Rehearse the finale (judge face swap)
 - [ ] **Freeze features**
@@ -332,13 +335,38 @@ Per-layer scores are logged to CSV so slide numbers come straight from the logs.
 
 ### Results
 
-| Experiment | Result |
+**Pulse layer on face swaps: no signal.**
+
+| Test | Baseline AUC | Transformer AUC |
+|---|---|---|
+| DFD, held-out people (5 different splits) | 0.59 to 0.67 | 0.45 to 0.53 |
+| DFDC part 0 (one person, as cross-dataset test) | 0.49 to 0.53 | 0.44 to 0.51 |
+| **536 unseen DFDC videos (parts 01 and 02), laptop-style ONNX path** | **0.49** | **0.50** |
+
+AUC 0.5 is a coin flip. On the 536 unseen videos, with the threshold chosen on DFD validation:
+
+| | Fakes let through | Real people rejected |
+|---|---|---|
+| Baseline (the exported model) | 76% | 25% (target was 5%) |
+| Transformer | 94% | 4% |
+
+**Why more training won't fix it**
+- **Paired check:** each fake shares its original's body, lighting and frames. A fake scored higher than its own original only 48% (baseline) and 52% (transformer) of the time.
+- **Raw signal:** region agreement is 0.139 for real vs. 0.146 for fake, and SNR is −1.8 vs. −1.9 dB. They are the same.
+- **Cleanest windows only:** keeping just the windows with the clearest pulse gives AUC 0.45 to 0.55.
+
+On compressed public face-swap videos the pulse in a fake looks the same as in its original. That fits the Fraunhofer finding that swaps inherit the driver's pulse, and compression erases whatever fine timing is left.
+
+**What this means for the firewall:** the pulse layer cannot be the face-swap detector. The camera check and colour-flash challenge carry that job, and layer 3 becomes a "live skin present" check (see the checklist).
+
+**Pitch line:** "We trained a pulse transformer and tested it on 536 unseen deepfake videos. On its own, the pulse can't catch modern face swaps, which is exactly why the firewall is layered."
+
+| Other experiment | Result |
 |---|---|
-| Transformer, real data | – |
-| CNN baseline | – |
-| Coherence baseline | – |
 | Color-flash pass rate (real vs. replay) | – |
+| Camera check on a virtual camera | – |
 | Latency on laptop | – |
+| Team's own 5 videos (real people wrongly rejected) | – |
 
 ---
 
@@ -376,7 +404,7 @@ With the judge's consent, swap their face onto a teammate and try to onboard. It
 
 ## ⚠️ Limitations
 
-- **The pulse model is unproven on real deepfakes.** Its catch rate is whatever the tests show.
+- **The pulse model does not catch face swaps.** Tested on 536 unseen DFDC videos, it is at chance (AUC about 0.5). The pulse layer is a "live skin present" check, not a swap detector.
 - **Compression hurts rPPG.** DFDC and DFD are compressed, which weakens the pulse signal.
 - **Skin tone bias.** Public pulse datasets mostly cover lighter skin. Our South Asian test data is 3 people, so any per-skin-tone result is a small pilot.
 - **It only knows what it's trained on.** Trained on face swaps, it catches face swaps. Photos and replays are mainly handled by the color-flash and camera checks.

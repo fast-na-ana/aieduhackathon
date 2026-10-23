@@ -1,0 +1,44 @@
+{
+  "kind": "baseline",
+  "preprocess": "pulse_model.tokens.agreement_features",
+  "inputs": {
+    "features": [
+      null,
+      65
+    ]
+  },
+  "regions": [
+    "forehead",
+    "left_cheek",
+    "right_cheek",
+    "chin",
+    "neck"
+  ],
+  "fps": 30,
+  "window_len": 300,
+  "normalize": "window",
+  "xcorr_lags": 5,
+  "threshold": 0.6137133836746216,
+  "target_bpcer": 0.05,
+  "output": "p_fake",
+  "source_run": "baseline_s0",
+  "threshold_note": "chosen on DFD validation people for the target BPCER; re-tune on the demo camera (README checklist D)",
+  "val_auc": 0.6392117430179713,
+  "test": {
+    "auc": 0.6705186235859355,
+    "threshold": 0.6137133836746216,
+    "bpcer": 0.2198952879581152,
+    "apcer": 0.5557768924302788,
+    "acc_at_0_5": 0.7147908073070124
+  },
+  "cross_test": {
+    "path": "data/pulse_windows/dfdc.npz",
+    "n_real": 62,
+    "n_fake": 751,
+    "auc": 0.5193290666208497,
+    "threshold": 0.6137133836746216,
+    "bpcer": 0.16129032258064516,
+    "apcer": 0.8242343541944075,
+    "acc_at_0_5": 0.3899138991389914
+  }
+}

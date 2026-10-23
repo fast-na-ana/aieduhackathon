@@ -1,0 +1,28 @@
+{
+ "_about": "DFD clips that dfd_clips() leaves out or files under another actor. Found 2026-10-24 by face-matching (OpenCV SFace) the tracked face of every DFD video against each actor's own single-person scenes, at 1 frame/s, and by cross-correlating the cached colour traces. The two walking scenes are the SAME footage filed under both partners (correlation 1.000, zero offset); DFD has no fakes for them, so the tracker had no swap target and follows the same face in both copies, giving identical windows under two subjects. One copy of each pair is kept, under the person it actually tracks; footage whose tracker switches between the two people mid-video is dropped.",
+ "drop": {
+  "02__walking_down_indoor_hall_disgust": "same footage as 01's copy; tracks 01 throughout",
+  "03__walking_and_outside_surprised": "same footage as 27's copy; tracks 27 throughout",
+  "03__walking_down_indoor_hall_disgust": "same footage as 27's copy; tracks 27 throughout",
+  "13__walking_and_outside_surprised": "same footage as 12's copy; tracks 12 throughout",
+  "13__walking_down_indoor_hall_disgust": "same footage as 12's copy; tracks 12 throughout",
+  "14__walking_down_indoor_hall_disgust": "same footage as 15's copy; switches between 14 and 15",
+  "16__walking_and_outside_surprised": "same footage as 17's copy; tracks 17 throughout",
+  "16__walking_down_indoor_hall_disgust": "same footage as 17's copy; tracks 17 throughout",
+  "20__walking_and_outside_surprised": "same footage as 21's copy; tracks 21 throughout",
+  "20__walking_down_indoor_hall_disgust": "same footage as 21's copy; tracks 21 throughout",
+  "22__walking_down_indoor_hall_disgust": "same footage as 23's copy; tracks 23 throughout",
+  "01__walking_and_outside_surprised": "same footage as 02's copy; switches between 01 and 02",
+  "02__walking_and_outside_surprised": "same footage as 01's copy; switches between 01 and 02",
+  "22__walking_and_outside_surprised": "same footage as 23's copy; switches between 22 and 23",
+  "23__walking_and_outside_surprised": "same footage as 22's copy; switches between 22 and 23",
+  "24__secret_conversation": "tracks 23, not 24",
+  "24_19__secret_conversation__LVZNRK9S": "fake whose body under the swap is 23, not 24"
+ },
+ "subject": {
+  "15__walking_down_indoor_hall_disgust": "14"
+ },
+ "subject_why": {
+  "15__walking_down_indoor_hall_disgust": "same footage as 14's copy (dropped); tracks 14 throughout"
+ }
+}

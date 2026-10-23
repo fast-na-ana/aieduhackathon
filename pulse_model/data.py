@@ -28,12 +28,19 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from .tokens import add_xcorr, make_tokens, preprocess_window  # noqa: F401 (make_tokens re-exported)
+
 REQUIRED = ("X", "y", "subject")
 SPLITS = ("train", "val", "test")
 
 
-def load_windows(data_dir, fps):
-    files = sorted(glob.glob(os.path.join(data_dir, "**", "*.npz"), recursive=True))
+def load_windows(data_dir, fps, scenes=""):
+    """data_dir: one .npz file or a folder of them. scenes: comma-separated scene names to keep
+    (empty = keep everything)."""
+    if os.path.isfile(data_dir):
+        files = [data_dir]
+    else:
+        files = sorted(glob.glob(os.path.join(data_dir, "**", "*.npz"), recursive=True))
     if not files:
         raise FileNotFoundError(f"No .npz files found under {data_dir}")
 
@@ -69,6 +76,7 @@ def load_windows(data_dir, fps):
                 clip=col("clip", np.array([f"{base}#{i}" for i in range(N)])),
                 attack=col("attack", np.where(y == 1, "fake", "real")),
                 split=col("split", np.full(N, "")),
+                scene=col("scene", np.full(N, "")),
             ))
             for k, v in parts[-1].items():
                 if len(v) != N:
@@ -86,6 +94,16 @@ def load_windows(data_dir, fps):
     d["mask"] &= d["X"].std(axis=-1) > 1e-8  # a flat signal means the region wasn't really there
     print(f"loaded {len(d['y'])} windows from {len(files)} file(s); regions = {regions}; "
           f"samples per window = {T}")
+
+    keep_scenes = [s.strip() for s in scenes.split(",") if s.strip()]
+    if keep_scenes:
+        unknown = set(keep_scenes) - set(d["scene"])
+        if unknown:
+            raise ValueError(f"scenes {sorted(unknown)} are not in the data")
+        keep = np.isin(d["scene"], keep_scenes)
+        d = {k: v[keep] for k, v in d.items()}
+        print(f"kept {keep.sum()} windows from scenes {keep_scenes} "
+              f"({(d['y'] == 0).sum()} real, {(d['y'] == 1).sum()} fake)")
     return d, regions
 
 
@@ -127,41 +145,6 @@ def assign_splits(d, cfg):
         if (ys == 0).sum() == 0 or (ys == 1).sum() == 0:
             print(f"WARNING: {s} split has {(ys == 0).sum()} real and {(ys == 1).sum()} fake windows")
     return split
-
-
-def preprocess_window(x, mask, mode):
-    """x: [R, L] raw pulse waveforms; mask: [R] bool."""
-    x = np.nan_to_num(x.astype(np.float32))
-    x = x - x.mean(axis=1, keepdims=True)
-    if mode == "region":
-        x = x / (x.std(axis=1, keepdims=True) + 1e-6)
-    elif mode == "window":
-        x = x / ((x[mask].std() if mask.any() else 1.0) + 1e-6)
-    else:
-        raise ValueError(f"unknown normalize mode {mode!r}")
-    x = np.clip(x, -6, 6)
-    x[~mask] = 0
-    return x
-
-
-def add_xcorr(x, mask, K):
-    """Appends each region's correlation with the face-average pulse at lags -K..K samples.
-    This states each region's relative timing explicitly (a lag of 1 frame is only 33 ms at 30 fps,
-    which the raw waveform alone hides from the model). Returns [R, L + 2K + 1]."""
-    if K <= 0:
-        return x
-    L = x.shape[1]
-    ref = x[mask].mean(axis=0) if mask.any() else np.zeros(L, np.float32)
-    core = ref[K:L - K]
-    c = np.stack([(x[:, K + k:L - K + k] * core).sum(axis=1) for k in range(-K, K + 1)], axis=1)
-    c = c / (np.linalg.norm(x[:, K:L - K], axis=1, keepdims=True) * np.linalg.norm(core) + 1e-6)
-    c[~mask] = 0
-    return np.concatenate([x, c.astype(np.float32)], axis=1)
-
-
-def make_tokens(x, mask, normalize, xcorr_lags):
-    """Full preprocessing for inference. The demo calls this on each rolling 10 s window."""
-    return add_xcorr(preprocess_window(x, mask, normalize), mask, xcorr_lags)
 
 
 class PulseWindows(Dataset):

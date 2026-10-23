@@ -9,7 +9,13 @@ from dataclasses import dataclass, fields
 @dataclass
 class Config:
     # ---- data ----
-    data_dir: str = "data/pulse_windows"  # folder of .npz files (format described at the top of data.py)
+    data_dir: str = "data/pulse_windows/dfd.npz"   # one .npz file or a folder of them (format: top of data.py)
+    scenes: str = ("talking_against_wall,kitchen_still,outside_talking_still_laughing,"
+                   "secret_conversation,meeting_serious")
+                                          # comma-separated scenes to keep, empty = all. Default: the
+                                          # 5 DFD scenes that have fakes, so "walking = real" can't be learned
+    cross_test: str = "data/pulse_windows/dfdc.npz"  # another dataset, scored once at the end with the
+                                          # validation threshold (never trained or tuned on). Empty = skip
     fps: int = 30
     window_seconds: float = 10.0          # model input = fps * window_seconds samples per region (300)
     normalize: str = "window"             # "window": one scale for all regions (keeps relative amplitude)
