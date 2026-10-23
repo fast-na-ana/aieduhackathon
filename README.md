@@ -20,7 +20,7 @@
 
 ## 🚦 Project status
 
-**Last updated: Sat Oct 24, 01:15 PKT. Final: Sat Oct 24, Lahore.**
+**Last updated: Sat Oct 24, 01:55 PKT. Final: Sat Oct 24, Lahore.**
 
 **Current stage: 🧠 Pulse training data is ready; next is training the model and building the demo app**
 
@@ -55,11 +55,12 @@ Legend: ✅ done · 🟡 in progress · ⚪ not started · 🔴 blocked
 - [x] Run on all videos: 1,976 of 2,587 converted into 15,363 windows
 - [x] Write the live webcam version (`pulse_pipeline/live.py`)
 - [ ] Test the live version on a real webcam (on the laptop; the PC has no camera)
-- [ ] *Optional:* recover the 521 DFDC videos lost to face tracking
+- [x] Investigate the 521 DFDC videos lost to face tracking: 443 come from 15 side-on recordings, looser thresholds recovered only 2 of 48, so they stay dropped
 
 ### B. Model
 - [ ] Train the transformer on real windows, keeping only the 5 DFD scenes that have fakes
-- [ ] Group DFDC videos by actual person (or train on DFD only)
+- [x] Group DFDC videos by actual person: all 86 DFDC originals are the same woman, so DFDC part 0 is one person (`dfdc/p00`)
+- [ ] Decide how to split: with one DFDC person, a by-person split puts all of DFDC in one split. Train on DFD and use DFDC as a cross-dataset test, or download more DFDC parts
 - [ ] Train the simple baseline (logistic regression on region agreement)
 - [ ] Compare the two and pick the winner
 - [ ] Export the winner to ONNX
@@ -246,10 +247,11 @@ One or more `.npz` files in a folder:
 
 `clips.csv` has a quality row for every video, and `skipped.csv` lists the ones dropped.
 
-- **Dropped videos:** 521 DFDC clips lost the face in tracking for too long, 65 DFD clips are shorter than 10 s, and profile or turned-away faces were skipped on purpose.
+- **Dropped videos:** 521 DFDC clips give no window (443 of them come from 15 side-on recordings, where fewer than 3 face regions are usable), and 65 DFD clips are shorter than 10 s. Looser tracking thresholds didn't help, so this is accepted.
 - **Weak signal:** on these compressed videos the pulse is near the noise floor (region agreement 0.10–0.18). It is clear on clean close-ups.
 - **Scene imbalance:** 68% of DFD real windows come from scenes with no fakes (walking, hugging). Train on the 5 scenes that have fakes, or the model may learn "walking = real". Each window records its `scene`.
-- **DFDC person IDs:** the same actress appears in several DFDC source videos, so a by-video split can leak a person across train and test.
+- **DFDC is one person:** face clustering (`pulse_pipeline/dfdc_people.py`) shows all 86 DFDC part-0 originals are the same woman, so all 813 DFDC windows carry one ID (`dfdc/p00`) and land together in one split. More people need more DFDC parts.
+- **DFD walking scenes:** in 4 of 84 checked real videos (all walking scenes) the tracked face is the partner actor, so their subject label is wrong.
 
 Both mirrors are re-uploads by individuals, not the official releases. The original research-use terms still apply.
 

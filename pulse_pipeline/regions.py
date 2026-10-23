@@ -63,6 +63,9 @@ MAX_MISSES = 5    # frames without the face before searching the whole frame aga
 MAX_FACES = 2     # faces MediaPipe may return per crop (we keep the one nearest the last position)
 SEARCH_TILES = (1.0, 0.6, 0.33)  # whole-frame search: tile sides as a fraction of the frame's short side
 SEARCH_EVERY = 10  # while no face is followed, search the whole frame every this many frames
+DETECT_CONF = PRESENCE_CONF = TRACK_CONF = 0.5  # MediaPipe's thresholds for finding / keeping a face
+# (0.3 and an instant re-detect on a miss were tried on 48 dropped DFDC videos: they recovered 2 and
+# added tracker jumps. Those videos drop because the face is side-on, not because tracking is strict.)
 
 
 def ensure_model(path=MODEL_PATH):
@@ -158,8 +161,8 @@ def landmarker(video=False, num_faces=MAX_FACES, model_path=None):
     opts = vision.FaceLandmarkerOptions(
         base_options=BaseOptions(model_asset_path=ensure_model(model_path or MODEL_PATH)),
         running_mode=vision.RunningMode.VIDEO if video else vision.RunningMode.IMAGE,
-        num_faces=num_faces, min_face_detection_confidence=0.5, min_face_presence_confidence=0.5,
-        min_tracking_confidence=0.5)
+        num_faces=num_faces, min_face_detection_confidence=DETECT_CONF,
+        min_face_presence_confidence=PRESENCE_CONF, min_tracking_confidence=TRACK_CONF)
     return vision.FaceLandmarker.create_from_options(opts)
 
 
@@ -244,14 +247,17 @@ class RegionExtractor:
         self.centre = pts.mean(0)
         self.misses = 0
 
+    def _finder(self):
+        if self.finder is None:
+            self.finder = landmarker(video=False, num_faces=4, model_path=self.model_path)
+        return self.finder
+
     def _search(self, frame):
         """No face followed yet, or lost for a while: search the whole frame (every few frames)."""
         if self.frame_i - self.searched_at < SEARCH_EVERY:
             return
         self.searched_at = self.frame_i
-        if self.finder is None:
-            self.finder = landmarker(video=False, num_faces=4, model_path=self.model_path)
-        faces = find_faces(frame, self.finder, stop_when_found=self.centre is None)
+        faces = find_faces(frame, self._finder(), stop_when_found=self.centre is None)
         if faces:  # first time: the biggest face; after a loss: the one nearest where it was
             pts = faces[0] if self.centre is None else min(
                 faces, key=lambda f: np.linalg.norm(f.mean(0) - self.centre))

@@ -8,10 +8,12 @@ pair           = a video aligned frame by frame with this one (a fake's original
                  video's fakes). The difference between the two shows which face was swapped, so
                  the tracker follows that face when several people are in shot.
 
-DFDC  metadata.json gives each fake's original video. DFDC has no person IDs, so the original
-      video stands in for the person. The same actor may appear in several originals, so a
-      subject split of DFDC can still leak a person across splits. The pasted face's identity
-      is not published, so source_subject is a unique "?..." placeholder.
+DFDC  metadata.json gives each fake's original video. DFDC has no person IDs, and the same actor
+      appears in several originals, so dfdc_people.py clusters the originals by face into
+      people and saves dfdc_people.json (original stem -> person id). A fake's subject is its
+      original's person. Without that file, the original video stands in for the person and a
+      subject split of DFDC can leak a person across splits. The pasted face's identity is not
+      published, so source_subject is a unique "?..." placeholder.
 DFD   real:  <actor>__<scene>.mp4
       fake:  <driver>_<face>__<scene>__<hash>.mp4. The driver is the FIRST id: checked on 24
       random fakes, whose backgrounds match the first id's original to <1 grey level on average.
@@ -25,6 +27,7 @@ DATA_ROOT = r"D:\DeepFake_Data"
 DFDC_DIR = os.path.join(DATA_ROOT, "dfdc", "dfdc_train_part_00", "dfdc_train_part_0")
 DFD_REAL_DIR = os.path.join(DATA_ROOT, "dfd", "DFD_original sequences")
 DFD_FAKE_DIR = os.path.join(DATA_ROOT, "dfd", "DFD_manipulated_sequences", "DFD_manipulated_sequences")
+DFDC_PEOPLE = os.path.join(os.path.dirname(__file__), "dfdc_people.json")
 
 
 def _clip(dataset, path, label, subject, source, scene, pair):
@@ -34,9 +37,14 @@ def _clip(dataset, path, label, subject, source, scene, pair):
                 scene=scene, pair=pair)
 
 
-def dfdc_clips(folder=DFDC_DIR):
+def dfdc_clips(folder=DFDC_DIR, people_path=DFDC_PEOPLE):
     with open(os.path.join(folder, "metadata.json")) as f:
         meta = json.load(f)
+    people = {}
+    if os.path.exists(people_path):
+        with open(people_path) as f:
+            people = json.load(f)
+    person = lambda stem: f"dfdc/{people.get(stem, stem)}"
     fakes_of = defaultdict(list)
     for name, m in sorted(meta.items()):
         if m["label"] == "FAKE":
@@ -47,11 +55,11 @@ def dfdc_clips(folder=DFDC_DIR):
         stem = os.path.splitext(name)[0]
         if m["label"] == "FAKE":
             orig = os.path.splitext(m["original"])[0]
-            clips.append(_clip("dfdc", path, 1, f"dfdc/{orig}", f"?dfdc/{stem}", "dfdc",
+            clips.append(_clip("dfdc", path, 1, person(orig), f"?dfdc/{stem}", "dfdc",
                                os.path.join(folder, m["original"])))
         else:
             pair = os.path.join(folder, fakes_of[name][0]) if fakes_of[name] else ""
-            clips.append(_clip("dfdc", path, 0, f"dfdc/{stem}", f"dfdc/{stem}", "dfdc", pair))
+            clips.append(_clip("dfdc", path, 0, person(stem), person(stem), "dfdc", pair))
     return clips
 
 
