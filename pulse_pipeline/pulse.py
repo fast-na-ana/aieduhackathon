@@ -120,6 +120,9 @@ def heart_rate(X, mask=None, fps=FPS, band=BAND_HZ):
 
     SNR follows de Haan & Jeanne 2013: power within 0.1 Hz of the peak and 0.2 Hz of its first
     harmonic vs. the rest of the band. Above ~0 dB the pulse is clearly visible.
+    If the spectrum also peaks at half the top frequency (at least half as strongly), that is taken as
+    the heart rate and the top peak as its harmonic; otherwise a ~60 bpm pulse with a strong second
+    harmonic flips between 60 and 120 from window to window.
     """
     X = np.atleast_2d(X)
     if mask is None:
@@ -131,7 +134,10 @@ def heart_rate(X, mask=None, fps=FPS, band=BAND_HZ):
     p = np.abs(np.fft.rfft(x * np.hanning(len(x)), nfft)) ** 2
     inband = (f >= band[0]) & (f <= band[1])
     f0 = f[inband][np.argmax(p[inband])]
-    sig = (np.abs(f - f0) <= 0.1) | (np.abs(f - 2 * f0) <= 0.2)
+    half = (np.abs(f - f0 / 2) <= 0.1) & (f >= band[0])
+    if half.any() and p[half].max() >= 0.5 * p[inband].max():
+        f0 = f[half][np.argmax(p[half])]
+    sig =(np.abs(f - f0) <= 0.1) | (np.abs(f - 2 * f0) <= 0.2)
     rest = (f >= band[0]) & (f <= 2 * band[1]) & ~sig
     snr = 10 * np.log10(p[sig].sum() / (p[rest].sum() + 1e-20) + 1e-20)
     return 60.0 * f0, snr

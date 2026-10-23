@@ -23,7 +23,7 @@ import cv2
 import numpy as np
 
 from .datasets import dfd_clips, dfdc_clips
-from .pulse import FPS, heart_rate, recording_windows
+from .pulse import FPS, heart_rate, recording_windows, region_agreement
 from .regions import REGIONS, RegionExtractor, face_size, find_faces, landmarker
 
 CACHE_DIR = os.path.join("data", "pulse_cache")
@@ -167,12 +167,14 @@ def build_windows(clips):
             fps_native, target = float(z["fps_native"]), z["target"]
         starts, X, mask = recording_windows(t, rgb)
         hr = np.array([heart_rate(x, m) for x, m in zip(X, mask)]).reshape(-1, 2)
+        agree = np.array([region_agreement(x, m) for x, m in zip(X, mask)], np.float32)
         face = ~np.isnan(rgb[:, :, 0]).all(axis=1)
         row.update(status="ok", frames=len(t), fps_native=round(fps_native, 3),
                    swap_located=int(not np.isnan(target).any()),
                    face_frac=round(face.mean(), 3), multi_face_frac=round((nf > 1).mean(), 3),
                    windows=len(X), hr_median=round(np.median(hr[:, 0]), 1) if len(X) else "",
-                   snr_median=round(np.median(hr[:, 1]), 2) if len(X) else "")
+                   snr_median=round(np.median(hr[:, 1]), 2) if len(X) else "",
+                   agree_median=round(float(np.nanmedian(agree)), 3) if len(X) else "")
         for r, name in enumerate(REGIONS):
             row[f"vis_{name}"] = round((~np.isnan(rgb[:, r, 0])).mean(), 3)
         rows.append(row)
@@ -180,7 +182,7 @@ def build_windows(clips):
             n = len(X)
             d = per_ds.setdefault(c["dataset"], {k: [] for k in (
                 "X", "mask", "y", "subject", "source_subject", "clip", "attack", "scene",
-                "start_s", "hr_bpm", "snr_db")})
+                "start_s", "hr_bpm", "snr_db", "agree")})
             d["X"].append(X)
             d["mask"].append(mask)
             d["y"].append(np.full(n, c["label"]))
@@ -189,6 +191,7 @@ def build_windows(clips):
             d["start_s"].append(starts.astype(np.float32))
             d["hr_bpm"].append(hr[:, 0].astype(np.float32))
             d["snr_db"].append(hr[:, 1].astype(np.float32))
+            d["agree"].append(agree)
 
     for ds, d in per_ds.items():
         arrays = {k: np.concatenate(v) for k, v in d.items()}

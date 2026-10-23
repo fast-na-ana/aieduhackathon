@@ -12,7 +12,7 @@
 ![Competition](https://img.shields.io/badge/AIEF-4th%20International%20AI%20Championship-purple)
 ![Category](https://img.shields.io/badge/category-AI%20in%20Fintech-red)
 
-[Status](#-project-status) • [Overview](#-overview) • [Architecture](#-architecture) • [Pulse model](#-the-pulse-consistency-model) • [Data](#-data) • [Getting started](#-getting-started) • [Evaluation](#-evaluation-plan) • [Demo](#-demo-plan) • [Limitations](#-limitations) • [Team](#-team)
+[Status](#-project-status) • [Checklist](#-checklist-to-demo-day) • [Overview](#-overview) • [Architecture](#-architecture) • [Pulse model](#-the-pulse-consistency-model) • [Data](#-data) • [Getting started](#-getting-started) • [Evaluation](#-evaluation-plan) • [Demo](#-demo-plan) • [Limitations](#-limitations) • [Team](#-team)
 
 </div>
 
@@ -20,25 +20,77 @@
 
 ## 🚦 Project status
 
-**Last updated: Fri Oct 23, 21:50 PKT. Final: Sat Oct 24, Lahore.**
+**Last updated: Sat Oct 24, 01:15 PKT. Final: Sat Oct 24, Lahore.**
 
-**Current stage: 🔧 Training data downloaded; next is the video-to-pulse pipeline**
+**Current stage: 🧠 Pulse training data is ready; next is training the model and building the demo app**
 
 | # | Stage | Status | Notes |
 |:---:|---|:---:|---|
 | **0** | **Research and design** | ✅ Done | Five-layer firewall design is fixed (see [Architecture](#-architecture)). |
 | **1** | **Training data** | ✅ Done | 449 real and 2,138 fake videos (DFDC part 0 + Google DFD), all labels checked. UBFC-rPPG not downloaded. |
-| **2** | **Pulse pipeline:** video → MediaPipe regions → POS → `.npz` windows | ⚪ Not started | Blocks training. Nothing turns videos into model input yet. |
-| **3** | **Pulse-consistency transformer** | 🟡 Code done | Built in `pulse_model/`. Tested on synthetic data only. Not trained on real data. |
+| **2** | **Pulse pipeline:** video → MediaPipe regions → POS → `.npz` windows | ✅ Done | `pulse_pipeline/`. 1,976 of 2,587 videos converted into 15,363 windows (4,495 real, 10,868 fake). Live-webcam version written, not yet tested on a camera. |
+| **3** | **Pulse-consistency transformer** | 🟡 Ready to train | Code in `pulse_model/`, training data ready. Not trained yet. |
 | **4** | **Baselines:** CNN on PPG maps, logistic regression / XGBoost on coherence | ⚪ Not started | Needed to show the transformer helps. |
 | **5** | **Other layers:** camera check, color-flash challenge, face match, risk decision | ⚪ Not started | |
-| **6** | **Demo app:** mock onboarding UI with per-layer panel, ONNX export, runs offline on the laptop | ⚪ Not started | P0 for the final. |
+| **6** | **Demo app:** mock onboarding UI with per-layer panel, ONNX export, runs offline on the laptop | 🟡 Planned | P0 for the final. Plan written in `demo_app/PLAN.md`, to be built on the laptop. No app code yet. |
 | **7** | **Evaluation:** APCER / BPCER, per-attack breakdown, latency on the laptop | ⚪ Not started | |
 | **8** | **Pitch:** slides, backup demo video, rehearsal, feature freeze | ⚪ Not started | Backup video must be recorded tonight. |
 
 Legend: ✅ done · 🟡 in progress · ⚪ not started · 🔴 blocked
 
 *Update this table whenever a stage changes.*
+
+---
+
+## ✅ Checklist to demo day
+
+**Critical path:** B (model) → D (put together). Run B on the PC and C on the laptop at the same time.
+
+### A. Pulse pipeline
+- [x] Find face regions with MediaPipe (forehead, cheeks, chin, neck)
+- [x] Average skin colour per region from raw frames
+- [x] Turn colours into a pulse with POS, detrend and band-pass
+- [x] Cut 10 s windows and save them as `.npz`
+- [x] Spot-check pulse plots (`data/pulse_checks/`)
+- [x] Run on all videos: 1,976 of 2,587 converted into 15,363 windows
+- [x] Write the live webcam version (`pulse_pipeline/live.py`)
+- [ ] Test the live version on a real webcam (on the laptop; the PC has no camera)
+- [ ] *Optional:* recover the 521 DFDC videos lost to face tracking
+
+### B. Model
+- [ ] Train the transformer on real windows, keeping only the 5 DFD scenes that have fakes
+- [ ] Group DFDC videos by actual person (or train on DFD only)
+- [ ] Train the simple baseline (logistic regression on region agreement)
+- [ ] Compare the two and pick the winner
+- [ ] Export the winner to ONNX
+- [ ] Test on the team's own 5 videos of 3 people
+
+### C. Demo app (built on the laptop)
+- [x] Write the plan (`demo_app/PLAN.md`)
+- [x] Set up the GitHub repo
+- [x] Push the PC's latest pipeline files (`live.py`, `pulse.py`, `extract.py`, `requirements.txt`, README)
+- [ ] Clone onto the laptop and start the laptop session from `PLAN.md`
+- [ ] Mock onboarding screen with a made-up bank
+- [ ] Layer 1: camera check
+- [ ] Layer 2: colour-flash challenge
+- [ ] Layer 3: pulse slot (dummy score until B is done)
+- [ ] Layer 4: face match (P2, skip if short on time)
+- [ ] Layer 5: decision and per-layer panel
+- [ ] Runs fully offline
+
+### D. Put it together (needs B and C)
+- [ ] Push the trained model, pull it on the laptop, plug it into layer 3
+- [ ] Tune thresholds on teammates
+- [ ] Run the attack ladder: photo → phone replay → live face swap
+- [ ] Rehearse the finale (judge face swap)
+- [ ] **Freeze features**
+
+### E. Pitch and safety net
+- [ ] Results slide with honest numbers, labelled as a pilot
+- [ ] **Record the backup demo video**
+- [ ] Slides and Q&A prep
+- [ ] Pack the kit: ring light, charger, mock ID card, backup video on USB
+- [ ] Rehearse at least twice
 
 ---
 
@@ -114,7 +166,7 @@ flowchart TD
 
 ## 🧠 The pulse-consistency model
 
-Code: [`pulse_model/`](pulse_model/). This is the only part built so far.
+Code: [`pulse_model/`](pulse_model/). Its input comes from [`pulse_pipeline/`](pulse_pipeline/), which turns videos (or the live webcam) into per-region pulse windows.
 
 | File | What it does |
 |---|---|
@@ -184,6 +236,21 @@ One or more `.npz` files in a folder:
 | **Google DFD, fake subset** | 890 face swaps from 5 still, front-facing scenes (`talking_against_wall`, `kitchen_still`, `outside_talking_still_laughing`, `secret_conversation`, `meeting_serious`). Each one's source video is in the real set. | 5.0 GB | ✅ |
 | **Total** | **449 real, 2,138 fake** | 20.3 GB | |
 
+### Converted to pulse windows (`data/pulse_windows/`, never into git)
+
+| | Videos used | Windows | Real / fake windows |
+|---|---|---|---|
+| DFDC | 813 of 1,334 | 813 | 62 / 751 |
+| DFD | 1,163 of 1,253 | 14,550 | 4,433 / 10,117 |
+| **Total** | **1,976** | **15,363** | **4,495 / 10,868** |
+
+`clips.csv` has a quality row for every video, and `skipped.csv` lists the ones dropped.
+
+- **Dropped videos:** 521 DFDC clips lost the face in tracking for too long, 65 DFD clips are shorter than 10 s, and profile or turned-away faces were skipped on purpose.
+- **Weak signal:** on these compressed videos the pulse is near the noise floor (region agreement 0.10–0.18). It is clear on clean close-ups.
+- **Scene imbalance:** 68% of DFD real windows come from scenes with no fakes (walking, hugging). Train on the 5 scenes that have fakes, or the model may learn "walking = real". Each window records its `scene`.
+- **DFDC person IDs:** the same actress appears in several DFDC source videos, so a by-video split can leak a person across train and test.
+
 Both mirrors are re-uploads by individuals, not the official releases. The original research-use terms still apply.
 
 ### Original plan vs. reality
@@ -206,8 +273,20 @@ Both mirrors are re-uploads by individuals, not the official releases. The origi
 
 ## 🚀 Getting started
 
+Code lives at [fast-na-ana/aieduhackathon](https://github.com/fast-na-ana/aieduhackathon), branch `main`. Clone it outside OneDrive.
+
+```bash
+git clone https://github.com/fast-na-ana/aieduhackathon.git
+```
+
 ```bash
 pip install -r requirements.txt
+```
+
+### See your own pulse from the webcam
+
+```bash
+py -3.12 -m pulse_pipeline.live
 ```
 
 ### Test the model code on synthetic data
@@ -220,7 +299,7 @@ py -3.12 -m pulse_model.make_synthetic_data
 py -3.12 -m pulse_model.train --data_dir data/synthetic --run_name synthetic_test
 ```
 
-### Train on real data (once `.npz` windows exist)
+### Train on real data
 
 ```bash
 py -3.12 -m pulse_model.train --data_dir data/pulse_windows --run_name real_v1
@@ -230,7 +309,7 @@ Add `--xcorr_lags 0` to train the waveform-only version for comparison.
 
 ### Not built yet
 
-The pulse pipeline, the other four layers and the demo app don't exist yet. Their dependencies (MediaPipe, OpenCV, onnxruntime, InsightFace) aren't in `requirements.txt` yet.
+The other four layers and the demo app don't exist yet. Their plan is in [`demo_app/PLAN.md`](demo_app/PLAN.md). onnxruntime and InsightFace aren't in `requirements.txt` yet.
 
 ---
 
