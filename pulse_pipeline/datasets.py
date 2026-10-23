@@ -1,0 +1,77 @@
+"""
+Lists the training videos with their labels and identities.
+
+subject        = whose body (and so whose pulse) is on camera. For a face swap that is the DRIVER
+                 video's person, not the face that was pasted on.
+source_subject = whose face was pasted on (= subject for real videos).
+pair           = a video aligned frame by frame with this one (a fake's original, or one of a real
+                 video's fakes). The difference between the two shows which face was swapped, so
+                 the tracker follows that face when several people are in shot.
+
+DFDC  metadata.json gives each fake's original video. DFDC has no person IDs, so the original
+      video stands in for the person. The same actor may appear in several originals, so a
+      subject split of DFDC can still leak a person across splits. The pasted face's identity
+      is not published, so source_subject is a unique "?..." placeholder.
+DFD   real:  <actor>__<scene>.mp4
+      fake:  <driver>_<face>__<scene>__<hash>.mp4. The driver is the FIRST id: checked on 24
+      random fakes, whose backgrounds match the first id's original to <1 grey level on average.
+"""
+import glob
+import json
+import os
+from collections import defaultdict
+
+DATA_ROOT = r"D:\DeepFake_Data"
+DFDC_DIR = os.path.join(DATA_ROOT, "dfdc", "dfdc_train_part_00", "dfdc_train_part_0")
+DFD_REAL_DIR = os.path.join(DATA_ROOT, "dfd", "DFD_original sequences")
+DFD_FAKE_DIR = os.path.join(DATA_ROOT, "dfd", "DFD_manipulated_sequences", "DFD_manipulated_sequences")
+
+
+def _clip(dataset, path, label, subject, source, scene, pair):
+    stem = os.path.splitext(os.path.basename(path))[0]
+    return dict(clip=f"{dataset}/{stem}", dataset=dataset, path=path, label=label,
+                attack="swap" if label else "real", subject=subject, source_subject=source,
+                scene=scene, pair=pair)
+
+
+def dfdc_clips(folder=DFDC_DIR):
+    with open(os.path.join(folder, "metadata.json")) as f:
+        meta = json.load(f)
+    fakes_of = defaultdict(list)
+    for name, m in sorted(meta.items()):
+        if m["label"] == "FAKE":
+            fakes_of[m["original"]].append(name)
+    clips = []
+    for name, m in sorted(meta.items()):
+        path = os.path.join(folder, name)
+        stem = os.path.splitext(name)[0]
+        if m["label"] == "FAKE":
+            orig = os.path.splitext(m["original"])[0]
+            clips.append(_clip("dfdc", path, 1, f"dfdc/{orig}", f"?dfdc/{stem}", "dfdc",
+                               os.path.join(folder, m["original"])))
+        else:
+            pair = os.path.join(folder, fakes_of[name][0]) if fakes_of[name] else ""
+            clips.append(_clip("dfdc", path, 0, f"dfdc/{stem}", f"dfdc/{stem}", "dfdc", pair))
+    return clips
+
+
+def dfd_clips(real_dir=DFD_REAL_DIR, fake_dir=DFD_FAKE_DIR):
+    fakes = sorted(glob.glob(os.path.join(fake_dir, "*.mp4")))
+    fakes_of = defaultdict(list)
+    clips = []
+    for path in fakes:
+        ids, scene, _ = os.path.basename(path)[:-4].split("__")
+        driver, face = ids.split("_")
+        orig = os.path.join(real_dir, f"{driver}__{scene}.mp4")
+        fakes_of[orig].append(path)
+        clips.append(_clip("dfd", path, 1, f"dfd/{driver}", f"dfd/{face}", scene,
+                           orig if os.path.exists(orig) else ""))
+    for path in sorted(glob.glob(os.path.join(real_dir, "*.mp4"))):
+        actor, scene = os.path.basename(path)[:-4].split("__")
+        pair = fakes_of[path][0] if fakes_of[path] else ""
+        clips.append(_clip("dfd", path, 0, f"dfd/{actor}", f"dfd/{actor}", scene, pair))
+    return clips
+
+
+def all_clips():
+    return dfdc_clips() + dfd_clips()
