@@ -52,6 +52,16 @@ The transformer reads timing cues well on synthetic data (**AUC 0.994** vs 0.920
 
 **What it means for the design:** pulse analysis cannot be the face-swap detector on its own. It is downgraded to a *"live skin present"* check, and the camera check plus the colour-flash challenge carry the anti-swap job. That is the reason the firewall is layered.
 
+## Pipeline engineering
+
+The parts of this project that carry over to production ML (MLOps):
+
+- **Restartable, parallel extraction:** stage 1 caches per-video results and skips anything already cached, so a multi-hour run over 2,587 videos can be stopped and resumed. It runs on a process pool, and every video gets a quality row (`clips.csv`) or a reason it was skipped (`skipped.csv`).
+- **Single source of config:** every hyperparameter lives in `pulse_model/config.py` and can be overridden from the command line.
+- **Self-describing runs:** each training run writes `best.pt`, `log.csv`, `metrics.json`, `curves.png` and `test_predictions.csv` to `runs/<name>/`.
+- **Leak-free evaluation:** splits are by person, and the decision threshold is fixed on validation before the test set is scored once.
+- **Deployable artifact:** the chosen model is exported to ONNX with a JSON sidecar holding its preprocessing settings and decision threshold, and `evaluate.py` scores any data through the same ONNX path the demo uses.
+
 ## Architecture
 
 ```mermaid
