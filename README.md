@@ -54,7 +54,7 @@ The transformer reads timing cues well on synthetic data (**AUC 0.994** vs 0.920
 
 ## Pipeline engineering
 
-The parts of this project that carry over to production ML (MLOps):
+The parts of this project that carry over to production systems:
 
 - **Restartable, parallel extraction:** stage 1 caches per-video results and skips anything already cached, so a multi-hour run over 2,587 videos can be stopped and resumed. It runs on a process pool, and every video gets a quality row (`clips.csv`) or a reason it was skipped (`skipped.csv`).
 - **Single source of config:** every hyperparameter lives in `pulse_model/config.py` and can be overridden from the command line.
