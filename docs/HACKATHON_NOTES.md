@@ -280,10 +280,10 @@ Both mirrors are re-uploads by individuals, not the official releases. The origi
 
 ## 🚀 Getting started
 
-Code lives at [fast-na-ana/aieduhackathon](https://github.com/fast-na-ana/aieduhackathon), branch `main`. Clone it outside OneDrive.
+Code lives at [fast-na-ana/pulseguard](https://github.com/fast-na-ana/pulseguard), branch `main`. Clone it outside OneDrive.
 
 ```bash
-git clone https://github.com/fast-na-ana/aieduhackathon.git
+git clone https://github.com/fast-na-ana/pulseguard.git
 ```
 
 ```bash

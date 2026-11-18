@@ -69,8 +69,8 @@ flowchart LR
 ## Getting started
 
 ```bash
-git clone https://github.com/fast-na-ana/aieduhackathon.git
-cd aieduhackathon
+git clone https://github.com/fast-na-ana/pulseguard.git
+cd pulseguard
 pip install -r requirements.txt
 ```
 
